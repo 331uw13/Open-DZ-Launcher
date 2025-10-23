@@ -11,6 +11,12 @@
 
 #include "string.h"
 
+
+
+//#define DEBUG
+
+
+
 static struct sockaddr_in sockaddr_recv;
 static struct sockaddr_in sockaddr_send;
 static int socket_fd = -1;
@@ -45,11 +51,12 @@ static void dump_hex(const char* label, char* buffer, size_t size) {
 }
 
 
-void query_dayz_server(const char* host, uint16_t query_port,
+bool get_server_a2s_responses(const char* host, uint16_t query_port,
         struct string_t* server_info,
         struct string_t* server_mod_info
 ){
-    printf("%s: %s:%i\n", __func__, host, query_port);
+    bool result = false;
+    //printf("%s: %s:%i\n", __func__, host, query_port);
 
     socket_fd = -1;
     socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -90,7 +97,9 @@ void query_dayz_server(const char* host, uint16_t query_port,
         0x65, 0x20, 0x45, 0x6e, 0x67, 0x69, 0x6e, 0x65, 0x20, 0x51, 0x75, 0x65, 0x72, 0x79, 0x0
     };
 
+#ifdef DEBUG
     dump_hex("general info packet", info_packet, sizeof(info_packet));
+#endif
 
     if(send_packet(info_packet, sizeof(info_packet)) < 0) {
         fprintf(stderr, "Failed to send general info packet | %s\n", strerror(errno));
@@ -105,8 +114,9 @@ void query_dayz_server(const char* host, uint16_t query_port,
         goto out;
     }
 
+#ifdef DEBUG
     dump_hex("general info token", challenge_resp, recv_numbytes);
-
+#endif
 
     // Ok so it should have received the challenge number/token
     // now we need to append the challenge number at end of the info packet.
@@ -115,13 +125,13 @@ void query_dayz_server(const char* host, uint16_t query_port,
     response_packet = calloc(1, response_size);
 
     memmove(response_packet, info_packet, sizeof(info_packet));
-    memmove(
-            response_packet + sizeof(info_packet),
+    memmove(response_packet + sizeof(info_packet),
             &challenge_resp[5], // Ignore first 5 bytes.
-            challenge_num_len
-            );
+            challenge_num_len);
 
+#ifdef DEBUG
     dump_hex("general info resp", response_packet, response_size);
+#endif
 
     if(send_packet(response_packet, response_size) < 0) {
         fprintf(stderr, "Failed to send info packet "
@@ -146,7 +156,9 @@ void query_dayz_server(const char* host, uint16_t query_port,
         0xff, 0xff, 0xff, 0xff, 0x56, 0x0, 0x0, 0x0, 0x0
     };
 
+#ifdef DEBUG
     dump_hex("mod info packet", modinfo_packet, sizeof(modinfo_packet));
+#endif
 
     if(send_packet(modinfo_packet, sizeof(modinfo_packet)) < 0) {
         fprintf(stderr, "Failed to send mod info packet | %s\n", strerror(errno));
@@ -159,8 +171,9 @@ void query_dayz_server(const char* host, uint16_t query_port,
         goto out;
     }
 
+#ifdef DEBUG
     dump_hex("mod info token", challenge_resp, sizeof(challenge_resp));
-
+#endif
     // The challenge number/token should be now received.
     // It is the same thing again as previous step, 
     // append the received token back to the just sent modinfo_packet and send it.
@@ -169,13 +182,13 @@ void query_dayz_server(const char* host, uint16_t query_port,
     response_packet = calloc(1, response_size);
 
     memmove(response_packet, modinfo_packet, sizeof(modinfo_packet) - 4);
-    memmove(
-            response_packet + sizeof(modinfo_packet) - 4,
+    memmove(response_packet + sizeof(modinfo_packet) - 4,
             &challenge_resp[5],
-            challenge_num_len
-            );
+            challenge_num_len);
 
+#ifdef DEBUG
     dump_hex("mod info resp", response_packet, sizeof(modinfo_packet));
+#endif
 
     if(send_packet(response_packet, sizeof(modinfo_packet)) < 0) {
         fprintf(stderr, "Failed to send mod info packet "
@@ -197,15 +210,17 @@ void query_dayz_server(const char* host, uint16_t query_port,
                 "\033[31m\n"
                 "=================================================================\n"
                 " [ WARNING ]: There seems to be more than 1 chunks in the packet.\n"
-                "              This is not an error but "
-                "              its not implemented to handle this yet\n"
-                "              see if there are any updates.\n"
+                "              This is not an error,\n"
+                "              but chunk merging is not implemented yet.\n"
+                "              Check if there is any updates.\n"
                 "=================================================================\n"
                 "\033[0m\n"
                 );
+        goto out;
     }
 
 
+    result = true;
 
 out:
 
@@ -217,6 +232,8 @@ out:
     if(socket_fd >= 0) {
         close(socket_fd);
     }
+
+    return result;
 }
 
 

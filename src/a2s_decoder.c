@@ -1,11 +1,18 @@
+#include <stdio.h>
+
 #include "a2s_decoder.h"
 
 
 
 
 
-void decode_a2s_escapes(uint8_t* buffer, size_t size, uint8_t* output, size_t output_max) {
+bool decode_a2s_escapes(uint8_t* buffer, size_t size, uint8_t* output, size_t output_max) {
 
+    if(size > output_max) {
+        fprintf(stderr, "%s: Output(decoded) buffer should not be smaller than the original buffer.\n",
+                __func__);
+        return false;
+    }
 
     //              Steam header --.    | v-- "this is A2S rules response"
     //                             |    |  | v-- Number of rules.
@@ -15,7 +22,7 @@ void decode_a2s_escapes(uint8_t* buffer, size_t size, uint8_t* output, size_t ou
 
     // Escape sequence
     // 0x01 0x01  ->  0x01
-    // 0x01 0x02  ->  0x02
+    // 0x01 0x02  ->  0x00
     // 0x01 0x03  ->  0xFF
 
     size_t out_idx = 0;
@@ -31,7 +38,7 @@ void decode_a2s_escapes(uint8_t* buffer, size_t size, uint8_t* output, size_t ou
         }
         else
         if((*byte == 0x01) && (next_byte == 0x02)) {
-            output[out_idx] = 0x02;
+            output[out_idx] = 0x00;
             byte += 2;
         }
         else
@@ -47,6 +54,7 @@ void decode_a2s_escapes(uint8_t* buffer, size_t size, uint8_t* output, size_t ou
         out_idx++;
     }
 
+    return true;
 }
 
 

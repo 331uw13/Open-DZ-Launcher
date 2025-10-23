@@ -5,7 +5,15 @@
 #include <string.h>
 
 
+#include "a2s_parser.h"
+#include "opendz_launcher.h"
 
+
+
+//#define DEBUG
+
+
+/*
 static uint16_t read_u16(uint8_t* buf) {
     return buf[0] | (buf[1] << 8);
 }
@@ -22,19 +30,29 @@ static int count_bits(uint16_t i) {
     }
     return count;
 }
+*/
+
+static uint32_t read_u32(uint8_t* buf) {
+    return buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] << 24);
+}
 
 
 
 
-void parse_a2s_rules(uint8_t* buffer, size_t size) {
+bool parse_a2s_rules(
+        uint8_t* buffer, size_t size,
+        struct dayz_mod* mods, uint8_t* num_mods
+){
 
+    if(size < 6) {
+        fprintf(stderr, "%s: Too small A2S response buffer to be valid.\n",
+                __func__);
+        return false;
+    }
 
     size_t offset = 0;
 
 
-    uint8_t protocol_version = 0;
-    uint8_t overflow_flags = 0;
-    uint16_t dlc_flags = 0;
     //uint32_t dlc_hash = 0;
     uint8_t mods_count = 0;
 
@@ -42,50 +60,58 @@ void parse_a2s_rules(uint8_t* buffer, size_t size) {
     // Mod steam ID (uint32)
     // Mod name (max 256)
 
-    uint8_t signature_count = 0;
 
-    protocol_version = buffer[offset++];
-    overflow_flags = buffer[offset++];
+    // Skip protocol version and overflow flags.
+    //offset += 2;
+    uint8_t protocol_version = buffer[offset++];
+    uint8_t overflow_flags = buffer[offset++];
 
-    dlc_flags = read_u16(buffer + offset);
-    offset += sizeof(uint32_t);
+    printf(" \033[35mProtocol Version = %i\033[0m\n", protocol_version);
+
+    /*
+    if(protocol_version == 6) {
+        offset += 5;
+    }
+    */
+
+
+    // Skip DLC flags.
+    offset += sizeof(uint32_t); 
+    //uint32_t dlc_hash = read_u32(buffer + offset);
+    //offset += sizeof(uint32_t);
 
     mods_count = buffer[offset++];
-
-
+   
+    *num_mods = mods_count;
+   
+    /*
     printf("Protocol version: %i\n", protocol_version);
     printf("Overflow flags: %i\n", overflow_flags);
     printf("DLC flags: %i | dlc: %s\n", dlc_flags, (count_bits(dlc_flags) == 1) ? "yes" : "no");
     printf("Mods count: %i\n", mods_count);
-
-
-    /*
-    uint32_t mod_hash = read_u32(buffer + offset);
-    offset += sizeof(uint32_t);
-
-    uint8_t id_len = buffer[offset++];
-
-    printf("mod hash: %i\n", mod_hash);
-    printf("mod idlen: %i\n", id_len);
-
-    uint32_t modid_u32 = read_u32(buffer + offset);
-    offset += sizeof(uint32_t);
-
-    printf("%i\n", modid_u32);
     */
-
-
+    // note: there is 10 bytes before mod name.
     
     for(int mi = 0; mi < mods_count; mi++) {
+        struct dayz_mod* mod = &mods[mi];
 
+   
+#ifdef DEBUG
         uint32_t mod_hash = read_u32(buffer + offset); 
+        printf("\n\033[36m(DEBUG): (4:u32) mod hash = %u\033[0m\n", mod_hash);
+#endif
         offset += sizeof(uint32_t);
 
-        uint8_t modid_len = buffer[offset++];
+        uint8_t modid_len = buffer[offset++] & 0x0F;
 
-        printf("\033[90mmodid_len: %i\033[0m\n", modid_len);
+#ifdef DEBUG
+        printf("\033[36m(DEBUG): (1:u8) mod id length = %u\033[0m\n", modid_len);
+#endif
+
+        /*
         // For now assume all mod id lengths are the same. 4 bytes.
-        if(modid_len != 4) {
+        if(modid_len > 4) {
+
             fprintf(stderr,
                     "\033[31m\n"
                     "=================================================================\n"
@@ -93,59 +119,69 @@ void parse_a2s_rules(uint8_t* buffer, size_t size) {
                     "              by the current version of this software.\n"
                     "=================================================================\n"
                     "\033[0m\n", modid_len);
-            return;
+
+
+
+            return false;
+        }
+        */
+
+
+        // TODO: Add something which will tell user that
+        //       this failed to get the workshop id but we must be able to parse the rest.
+        //       so try to look for bytes which could be the mod name length (if everything fails)
+
+
+        mod->workshop_id = read_u32(buffer + offset);
+
+        // Sometimes there may be invalid workshop id
+        // for some reason its not always 4 bytes long and its bit of a mess...
+        // TODO: Add explain from notes if this works..
+
+        if((mod->workshop_id < 0x3b9aca00)
+        || (mod->workshop_id > 0x2540be3ff)) {
+            
+            uint8_t bytes[8] = { 0 };
+            memmove(bytes, buffer + offset, 8);
+
+            bytes[3] = bytes[7];
+            memset(bytes + 4, 0, 8-4);
+
+            mod->workshop_id = read_u32(bytes);
+
+            offset += 8;
+        }
+        else {
+            offset += modid_len; 
         }
 
-        // note: 10 bytes before mod name.
+#ifdef DEBUG
+        printf("\033[36m(DEBUG): (4:u32) workshop id = %u\033[0m\n", mod->workshop_id);
+#endif
+
+        mod->name_length = buffer[offset++];
+        memset(mod->name, 0, DAYZ_MODNAME_MAX);
 
 
-        // Save mod id for debugging..
-        uint8_t mod_id_bytes[4] = { 0 };
-        memmove(mod_id_bytes, buffer + offset, 4);
-        offset += 4;
-
-        //uint32_t mod_workshop_id = read_u32(buffer + offset);
-        //offset += sizeof(uint32_t);
-
-        uint8_t mod_name_len = buffer[offset++];
-        // TODO: Check mod name length for safety. it cant be greater than 256 bytes.
-
-        char mod_name[256] = { 0 };
-        
-        // Read mod name.
-        for(int k = 0; k < mod_name_len; k++) {
+        // Read only printable ASCII characters in the name.
+        for(uint8_t k = 0; k < mod->name_length; k++) {
             char ch = (char)buffer[offset];
-            if(ch >= 0x20 && ch <= 0x7E) {
-                mod_name[k] = ch;
-            }
-            else {
+            if((ch >= 0x20) && (ch <= 0x7E)) {
+                mod->name[k] = ch;
+            } 
+            else
+            if(k > 0) {
                 k--;
             }
             offset++;
         }
 
-        printf("(%i)'%s' \033[32m", mod_name_len, mod_name);
-
-        
-        for(int i = 0; i < 4; i++) {
-            printf("%02X ", mod_id_bytes[i]);
-        }
-
-        uint32_t mod_workshop_id = read_u32(mod_id_bytes);
-        
-
-        //memmove(&mod_workshop_id, mod_id_bytes, 4);
-
-        printf("\033[0m | %u\n", mod_workshop_id);
-
-    
+#ifdef DEBUG
+        printf("\033[36m(DEBUG): (%i) mod name = '%s'\033[0m\n", mod->name_length, mod->name);
+#endif
     }
-    
 
-
-
-
-
+    return true;
 }
 
 

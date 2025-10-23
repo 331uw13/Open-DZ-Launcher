@@ -6,12 +6,27 @@
 #include "server_query.h"
 #include "a2s_parser.h"
 #include "a2s_decoder.h"
+#include "opendz_launcher.h"
 
 
 
 
 
-/*
+char* mods[] = {
+    "3031784065",
+    "3417067137",
+    "1559212036",
+    "2572331007",
+    "2394804821",
+    "2545327648",
+    "1582756848",
+    "1644467354",
+};
+
+int num_mods = 8;
+
+
+
 void cmd_add_steam_applaunch(struct string_t* cmd) {
     char* applaunch = "steam -applaunch 221100 -nolauncher ";
     string_move(cmd, applaunch, strlen(applaunch));
@@ -71,11 +86,9 @@ void cmd_add_destination(struct string_t* cmd, char* host, char* port) {
     string_append(cmd, port, strlen(port));
 
 }
-    */
 
-int main() {
-    
-    /*
+void start_dayz() {
+  
     //link_mods();  // TODO: Create a check for symlink if they exists. create them.
     // And should maybe not use system() for that.
 
@@ -90,13 +103,68 @@ int main() {
    
     system(cmd.bytes);
     string_free(&cmd);
-    */ 
+     
 
-    
+
+}
+
+
+void print_server_info(char* addr, uint16_t port) {
+
+    struct dayz_server server_info;
+
+
+    printf("–––––––––––––––––––––––––––––––––––––––––––––––––––\n");
+    printf("\033[90mA2S Response from: (%s : %i)\033[0m\n", addr, port);
+    printf("\n");
+    if(!opendzl_get_server_info(addr, port, &server_info)) {
+        fprintf(stderr, "opendzl_get_server_info() Failed\n");
+        return;
+    }
+
+    printf("'%s'\n", server_info.name);
+    printf("'%s'\n", server_info.map_name);
+    printf(" %i Mods\n", server_info.num_mods);
+
+    for(uint8_t i = 0; i < server_info.num_mods; i++) {
+        printf("%s \033[32m%u\033[0m\n", 
+                server_info.mods[i].name,
+                server_info.mods[i].workshop_id);
+    }
+
+    printf("-----------------------------------------------------\n");
+}
+
+
+int main() {
+ 
+
+    //start_dayz();
+    /*
+        --- FIXME ---
+
+        
+        * For example. 189.127.165.207 : 27016 
+          - Responds with 2 byte long mod id.  (not yet supported)
+   
+
+    */  
+
+
+    //print_server_info("192.168.1.141", 27016);
+    print_server_info("168.100.163.22", 27016);
+    print_server_info("103.152.197.191", 2303);
+    print_server_info("189.127.165.207", 27016);
+
+
+     
+
+    /*
     struct string_t server_info = create_string();
     struct string_t server_mod_info = create_string();
 
-    query_dayz_server("192.168.1.141", 27016, &server_info, &server_mod_info);
+    get_server_a2s_responses("185.207.214.54", 2305, &server_info, &server_mod_info);
+
 
 
     printf("\033[90m\n––––––––––––––––––––––––––––––\033[0m\n");
@@ -106,20 +174,10 @@ int main() {
             printf("%c", byte);
         }
         else {
-            printf("\033[34m%x\033[0m", byte);
+            printf("\033[34m%02X\033[0m ", (uint8_t)byte);
         }
     }
-    printf("\033[90m\nRAW ––––––––––––––––––––––––––––––\033[0m\n\n");
-    for(size_t i = 0; i < server_mod_info.size; i++) {
-        char byte = server_mod_info.bytes[i];
-
-        printf("%02X ", (uint8_t)byte);
-    }
-    printf("\n");    
-
-
-    // ================================================================
-
+   
 
     uint8_t decoded[4096] = { 0 };
 
@@ -127,25 +185,24 @@ int main() {
             decoded, sizeof(decoded));
 
 
-    printf("\033[90m\nDECODED ––––––––––––––––––––––––––––––\033[0m\n\n");
-    for(size_t i = 0; i < server_mod_info.size; i++) {
-        char byte = decoded[i];
+    struct dayz_mod  mods[OPENDZL_MAX_SERVER_MODS];
+    uint8_t          num_mods = 0;
 
-        printf("%02X ", (uint8_t)byte);
+    
+    parse_a2s_rules(decoded, sizeof(decoded), 
+            mods, &num_mods);
+
+    for(uint16_t i = 0; i < num_mods; i++) {
+        printf("'%s' %u\n", mods[i].name, mods[i].workshop_id);
     }
-    printf("\n");    
-    printf("\033[90m\n––––––––––––––––––––––––––––––\033[0m\n\n");
 
-
-
-
-    parse_a2s_rules(decoded, sizeof(decoded));
+    printf("Server has %i mods\n", num_mods);
 
 
 
 
     //parse_a2s_rules((uint8_t*)server_mod_info.bytes, server_mod_info.size);
-
+    */
 
     return 0;
 }

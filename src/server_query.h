@@ -7,7 +7,8 @@
 #include "string.h"
 
 
-void query_dayz_server(const char* host, uint16_t query_port,
+
+bool get_server_a2s_responses(const char* host, uint16_t query_port,
         struct string_t* server_info,
         struct string_t* server_mod_info);
 

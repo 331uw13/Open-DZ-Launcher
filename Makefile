@@ -5,6 +5,7 @@ TARGET_NAME = dayz-launcher
 
 SRC  = $(shell find ./src -type f -name *.c)
 OBJS = $(SRC:.c=.o)
+LIBS = -lSDL2 -lSDL2_ttf -lGL
 
 all: $(TARGET_NAME)
 
@@ -14,7 +15,7 @@ all: $(TARGET_NAME)
 
 $(TARGET_NAME): $(OBJS)
 	@echo -e "\033[90mLinking...\033[0m"
-	@$(CC) $(OBJS) -o $@ && (echo -e "\033[36mDone.\033[0m"; ls -lh $(TARGET_NAME))
+	@$(CC) $(OBJS) $(LIBS) -o $@ && (echo -e "\033[36mDone.\033[0m"; ls -lh $(TARGET_NAME))
 
 clean:
 	@rm -v $(OBJS) $(TARGET_NAME)

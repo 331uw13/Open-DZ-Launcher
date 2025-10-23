@@ -9,9 +9,6 @@
 #include "opendz_launcher.h"
 
 
-
-
-
 char* mods[] = {
     "3031784065",
     "3417067137",
@@ -108,7 +105,7 @@ void start_dayz() {
 
 }
 
-
+/*
 void print_server_info(char* addr, uint16_t port) {
 
     struct dayz_server server_info;
@@ -134,27 +131,28 @@ void print_server_info(char* addr, uint16_t port) {
 
     printf("-----------------------------------------------------\n");
 }
+*/
 
 
 int main() {
- 
+
+    if(!opendzl_init_sdl3()) {
+        return 1;
+    }
+
+    if(!opendzl_load_font("DejaVuSansCondensed.ttf")) {
+        return 1;
+    }
+
+    opendzl_run();
+    opendzl_free();
 
     //start_dayz();
-    /*
-        --- FIXME ---
-
-        
-        * For example. 189.127.165.207 : 27016 
-          - Responds with 2 byte long mod id.  (not yet supported)
-   
-
-    */  
-
-
+ 
     //print_server_info("192.168.1.141", 27016);
-    print_server_info("168.100.163.22", 27016);
-    print_server_info("103.152.197.191", 2303);
-    print_server_info("189.127.165.207", 27016);
+    //print_server_info("168.100.163.22", 27016);
+    //print_server_info("103.152.197.191", 2303);
+    //print_server_info("189.127.165.207", 27016);
 
 
      

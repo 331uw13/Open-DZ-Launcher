@@ -23,10 +23,22 @@ struct dayz_server {
 };
 
 
+struct rtext {
+    SDL_Rect rect;
+    SDL_Texture* texture;
+};
+
+
+void opendzl_create_rtext(struct rtext* text, char* buf, int font_size, int color);
+void opendzl_render_rtext(struct rtext* text, int x, int y);
+void opendzl_free_rtext(struct rtext* text);
 
 bool opendzl_get_server_info(char* addr, uint16_t port, struct dayz_server* server);
 
-
+bool opendzl_init_sdl3();
+bool opendzl_load_font(const char* path);
+void opendzl_run();
+void opendzl_free();
 
 
 #endif

@@ -62,17 +62,10 @@ bool parse_a2s_rules(
 
 
     // Skip protocol version and overflow flags.
-    //offset += 2;
-    uint8_t protocol_version = buffer[offset++];
-    uint8_t overflow_flags = buffer[offset++];
-
-    printf(" \033[35mProtocol Version = %i\033[0m\n", protocol_version);
-
-    /*
-    if(protocol_version == 6) {
-        offset += 5;
-    }
-    */
+    offset += 2;
+    //uint8_t protocol_version = buffer[offset++];
+    //uint8_t overflow_flags = buffer[offset++];
+    //printf(" \033[35mProtocol Version = %i\033[0m\n", protocol_version);
 
 
     // Skip DLC flags.
@@ -138,8 +131,7 @@ bool parse_a2s_rules(
         // for some reason its not always 4 bytes long and its bit of a mess...
         // TODO: Add explain from notes if this works..
 
-        if((mod->workshop_id < 0x3b9aca00)
-        || (mod->workshop_id > 0x2540be3ff)) {
+        if(mod->workshop_id < 0x3b9aca00) {
             
             uint8_t bytes[8] = { 0 };
             memmove(bytes, buffer + offset, 8);

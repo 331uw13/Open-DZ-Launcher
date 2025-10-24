@@ -11,23 +11,15 @@
 #include "a2s_parser.h"
 #include "a2s_decoder.h"
 #include "opendz_launcher.h"
+#include "opendz_launcher_gui.h"
 
 
-
-static struct SDL_T {
-    SDL_Window* window;
-    SDL_GLContext* context;
-    SDL_Renderer* renderer;
-    TTF_Font* font;
-    int win_width;
-    int win_height;
-}
-SDL = (struct SDL_T) {
+static struct SDL_T SDL = (struct SDL_T) {
     .window = NULL,
     .context = NULL
 };
 
-
+/*
 void opendzl_create_rtext(struct rtext* text, char* buf, int font_size, int color) {
     TTF_SetFontSize(SDL.font, font_size);
     
@@ -55,6 +47,7 @@ void opendzl_render_rtext(struct rtext* text, int x, int y) {
 void opendzl_free_rtext(struct rtext* text) {
     SDL_DestroyTexture(text->texture);
 }
+*/
 
 
 bool opendzl_get_server_info(char* addr, uint16_t port, struct dayz_server* server) {
@@ -181,6 +174,7 @@ bool opendzl_init_sdl3() {
 
     SDL_GetWindowSize(SDL.window, &SDL.win_width, &SDL.win_height);
 
+    
     return true;
 }
 
@@ -203,8 +197,10 @@ void opendzl_run() {
     bool running = true;
 
 
-    struct rtext name_text;
-    opendzl_create_rtext(&name_text, "Open-DZ-Launcher", 23, 0xCFAEECA);
+    opendzlgui_create_text(&SDL, "Open-DZ-Launcher", (struct vec2i){ 30, 50 }, 23, 0xCFAEECA, 0);
+
+    //struct rtext name_text;
+    //opendzl_create_rtext(&name_text, "Open-DZ-Launcher", 23, 0xCFAEECA);
 
 
     while(running) {
@@ -214,21 +210,35 @@ void opendzl_run() {
                     running = false;
                     break;
 
-
             }
         }
 
         SDL_SetRenderDrawColor(SDL.renderer, 35, 33, 30, 255);
         SDL_RenderClear(SDL.renderer);
 
-        opendzl_render_rtext(&name_text, 10, SDL.win_height-30);
+        opendzlgui_render(&SDL);
+        //opendzl_render_rtext(&name_text, 10, SDL.win_height-30);
 
 
         SDL_RenderPresent(SDL.renderer);
         SDL_GL_SwapWindow(SDL.window);
+    
+
+
+        // Limit CPU usage.
+        int win_flags = SDL_GetWindowFlags(SDL.window);
+        if((win_flags & SDL_WINDOW_INPUT_FOCUS)) {
+            // Window has focus.
+            SDL_Delay(10);
+        }
+        else {
+            // Window doesnt have focus
+            SDL_Delay(100);
+        }
+
     }
 
-    opendzl_free_rtext(&name_text);
+    //opendzl_free_rtext(&name_text);
 }
 
 void opendzl_free() {
@@ -244,6 +254,8 @@ void opendzl_free() {
         SDL_DestroyWindow(SDL.window);
         SDL.window = NULL;
     }
+
+    opendzlgui_free();
 
     TTF_Quit();
 }

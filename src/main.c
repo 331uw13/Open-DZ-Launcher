@@ -18,6 +18,7 @@ char* mods[] = {
     "2545327648",
     "1582756848",
     "1644467354",
+    "3324786374"
 };
 
 int num_mods = 8;
@@ -146,7 +147,7 @@ int main() {
 
     opendzl_run();
     opendzl_free();
-
+    
     //start_dayz();
  
     //print_server_info("192.168.1.141", 27016);

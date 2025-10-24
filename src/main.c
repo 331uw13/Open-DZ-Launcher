@@ -21,7 +21,7 @@ char* mods[] = {
     "3324786374"
 };
 
-int num_mods = 8;
+int num_mods = 9;
 
 
 
@@ -50,7 +50,7 @@ void link_mods() {
         string_pushbyte(&cmd, '@');
         string_append(&cmd, mods[i], strlen(mods[i]));
 
-        system(cmd.bytes);
+        //system(cmd.bytes);
 
         printf("%s\n", cmd.bytes);
 
@@ -137,6 +137,7 @@ void print_server_info(char* addr, uint16_t port) {
 
 int main() {
 
+    
     if(!opendzl_init_sdl3()) {
         return 1;
     }
@@ -148,6 +149,7 @@ int main() {
     opendzl_run();
     opendzl_free();
     
+    //link_mods();
     //start_dayz();
  
     //print_server_info("192.168.1.141", 27016);

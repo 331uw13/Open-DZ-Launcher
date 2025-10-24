@@ -56,6 +56,12 @@ bool get_server_a2s_responses(const char* host, uint16_t query_port,
         struct string_t* server_mod_info
 ){
     bool result = false;
+   
+    // Response packet is used store the previous sent packet and challenge number
+    size_t response_size = 0;
+    char* response_packet = NULL;
+
+
     //printf("%s: %s:%i\n", __func__, host, query_port);
 
     socket_fd = -1;
@@ -84,11 +90,6 @@ bool get_server_a2s_responses(const char* host, uint16_t query_port,
 
     // -5 because dont include first 5 bytes (FF FF FF FF 41)
     const int challenge_num_len = CHALLENGE_NUM_DATA_SIZE - 5; 
-
-    // Response packet is used store the previous sent packet and challenge number
-    size_t response_size = 0;
-    char* response_packet = NULL;
-
 
     // https://developer.valvesoftware.com/wiki/Server_queries
 

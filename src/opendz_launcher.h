@@ -12,12 +12,16 @@
 #define OPENDZL_MAX_SERVER_MAP_NAME 256
 
 struct SDL_T {
+    float frame_time;
     SDL_Window* window;
     SDL_GLContext* context;
     SDL_Renderer* renderer;
     TTF_Font* font;
     int win_width;
     int win_height;
+    int mouse_x;
+    int mouse_y;
+    bool mouse_down;
 };
 
 struct dayz_server {

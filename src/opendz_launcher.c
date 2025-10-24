@@ -190,6 +190,11 @@ bool opendzl_load_font(const char* path) {
     return true;
 }
 
+
+static void test_callback(void* arg) {
+    printf("%s\n",__func__);
+}
+
 void opendzl_run() {
 
 
@@ -197,21 +202,46 @@ void opendzl_run() {
     bool running = true;
 
 
-    opendzlgui_create_text(&SDL, "Open-DZ-Launcher", (struct vec2i){ 30, 50 }, 23, 0xCFAEECA, 0);
+    opendzlgui_create_text(&SDL, "Open-DZ-Launcher", (struct vec2i){ 30, 50 }, 23, 0);
+    
+    opendzlgui_create_button(&SDL, "test button", 
+            (struct vec2i){ 30, 200 }, (SDL_Color){ 150, 60, 30, 255 }, test_callback, 0);
+    
+    opendzlgui_create_button(&SDL, "join server", 
+            (struct vec2i){ 150, 200 }, (SDL_Color){ 30, 100, 30, 255 }, test_callback, 0);
+    
+    opendzlgui_create_button(&SDL, "download mods", 
+            (struct vec2i){ 270, 200 }, (SDL_Color){ 30, 100, 100, 255 }, test_callback, 0);
+    
+    opendzlgui_create_button(&SDL, "remove", 
+            (struct vec2i){ 30, 240 }, (SDL_Color){ 50, 50, 50, 255 }, test_callback, 0);
+    
 
-    //struct rtext name_text;
-    //opendzl_create_rtext(&name_text, "Open-DZ-Launcher", 23, 0xCFAEECA);
 
+
+    SDL.frame_time = 0.0f;
 
     while(running) {
+        uint64_t start_ticks = SDL_GetPerformanceCounter();
+        SDL.mouse_down = false;
+
         while(SDL_PollEvent(&event)) {
             switch(event.type) {
                 case SDL_QUIT:
                     running = false;
                     break;
 
+                case SDL_MOUSEMOTION:
+                    SDL_GetMouseState(&SDL.mouse_x, &SDL.mouse_y);
+                    break;
+
+                case SDL_MOUSEBUTTONDOWN:
+                    SDL.mouse_down = true;
+                    break;
             }
         }
+
+        //SDL.frame_time = (float)SDL_GetTicks()/1000.0f;
 
         SDL_SetRenderDrawColor(SDL.renderer, 35, 33, 30, 255);
         SDL_RenderClear(SDL.renderer);
@@ -220,22 +250,20 @@ void opendzl_run() {
         //opendzl_render_rtext(&name_text, 10, SDL.win_height-30);
 
 
-        SDL_RenderPresent(SDL.renderer);
         SDL_GL_SwapWindow(SDL.window);
+        SDL_RenderPresent(SDL.renderer);
     
+       
+        // Limit CPU usage and get accurate frame time.
 
-
-        // Limit CPU usage.
-        int win_flags = SDL_GetWindowFlags(SDL.window);
-        if((win_flags & SDL_WINDOW_INPUT_FOCUS)) {
-            // Window has focus.
-            SDL_Delay(10);
-        }
-        else {
-            // Window doesnt have focus
-            SDL_Delay(100);
-        }
-
+        uint64_t end_ticks = SDL_GetPerformanceCounter();
+        SDL.frame_time = (end_ticks - start_ticks) / (float)SDL_GetPerformanceFrequency();;
+      
+        SDL_Delay((16 / 1000.0f - SDL.frame_time) * 1000.0f);
+ 
+        end_ticks = SDL_GetPerformanceCounter();
+        SDL.frame_time = (end_ticks - start_ticks) / (float)SDL_GetPerformanceFrequency();;
+      
     }
 
     //opendzl_free_rtext(&name_text);

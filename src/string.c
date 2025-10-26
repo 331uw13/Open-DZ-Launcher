@@ -95,6 +95,16 @@ void string_pushbyte(struct string_t* str, char ch) {
     str->size += 1;
 }
 
+void string_popback(struct string_t* str) {
+    if(!str) {
+        return;
+    }
+    if(str->size > 0) {
+        str->bytes[str->size-1] = 0;
+        str->size--;
+    }
+}
+
 void string_clear(struct string_t* str) {
     if(!str->bytes) {
         return;

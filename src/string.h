@@ -28,6 +28,9 @@ void string_move(struct string_t* str, char* data, uint32_t size);
 // Add byte to end of string.
 void string_pushbyte(struct string_t* str, char ch);
 
+// Remove byte from end of string.
+void string_popback(struct string_t* str);
+
 // Sets all 'str->size' bytes to 0
 void string_clear(struct string_t* str);
 

@@ -191,8 +191,12 @@ bool opendzl_load_font(const char* path) {
 }
 
 
+static guielem_handle_t inputfield_handle = -1;
+static bool auto_setup_mods = false;
+
 static void test_callback(void* arg) {
-    printf("%s\n",__func__);
+    struct opendzlgui_inputfield* inputfield = opendzlgui_getelem(inputfield_handle, GUI_INPUTFIELD);
+    printf("%s\n", inputfield->input.bytes);
 }
 
 void opendzl_run() {
@@ -202,7 +206,7 @@ void opendzl_run() {
     bool running = true;
 
 
-    opendzlgui_create_text(&SDL, "Open-DZ-Launcher", (struct vec2i){ 30, 50 }, 23, 0);
+    opendzlgui_create_text(&SDL, "Open-DZ-Launcher", (struct vec2i){ 30, 50 }, (SDL_Color){ 230, 200, 160, 255 }, 23, 0);
     
     opendzlgui_create_button(&SDL, "test button", 
             (struct vec2i){ 30, 200 }, (SDL_Color){ 150, 60, 30, 255 }, test_callback, 0);
@@ -215,9 +219,12 @@ void opendzl_run() {
     
     opendzlgui_create_button(&SDL, "remove", 
             (struct vec2i){ 30, 240 }, (SDL_Color){ 50, 50, 50, 255 }, test_callback, 0);
-    
+
+    inputfield_handle = opendzlgui_create_inputfield(&SDL, "server address",
+            (struct vec2i){ 30, 280 }, 200, 0);
 
 
+    opendzlgui_create_checkbox(&SDL, "auto setup mods", (struct vec2i){ 120, 240 }, &auto_setup_mods, 0);
 
     SDL.frame_time = 0.0f;
 
@@ -237,6 +244,15 @@ void opendzl_run() {
 
                 case SDL_MOUSEBUTTONDOWN:
                     SDL.mouse_down = true;
+                    opendzlgui_reset_guielem_focus();
+                    break;
+            
+                case SDL_TEXTINPUT:
+                    opendzlgui_event_textinput(&SDL, event.text.text);
+                    break;
+
+                case SDL_KEYDOWN:
+                    opendzlgui_event_keyinput(&SDL, event.key.keysym.sym);
                     break;
             }
         }

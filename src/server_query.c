@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-
+#include <poll.h>
 
 #include "string.h"
 
@@ -21,6 +21,16 @@ static struct sockaddr_in sockaddr_recv;
 static struct sockaddr_in sockaddr_send;
 static int socket_fd = -1;
 
+static bool socket_read_ready_inms(int timeout_ms) {
+    struct pollfd pfd;
+    pfd.fd = socket_fd;
+    pfd.events = POLLIN;
+    nfds_t num_fds = 1;
+
+    return poll(&pfd, num_fds, timeout_ms) == 1;
+}
+
+
 static ssize_t send_packet(char* bytes, size_t size) {
     return sendto(socket_fd,
             bytes,
@@ -32,6 +42,10 @@ static ssize_t send_packet(char* bytes, size_t size) {
 
 static ssize_t recv_packet(char* outbuf, size_t outbuf_max) {
  
+    if(!socket_read_ready_inms(6*1000)) {
+        return -1; // Timed out.
+    }
+
     socklen_t slen = sizeof(sockaddr_recv);
     return recvfrom(
             socket_fd,

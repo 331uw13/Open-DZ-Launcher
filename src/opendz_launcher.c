@@ -1,53 +1,104 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <ncurses.h>
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_main.h>
-#include <SDL2/SDL_opengl.h>
-#include <SDL2/SDL_ttf.h>
-
-#include "string.h"
 #include "server_query.h"
 #include "a2s_parser.h"
 #include "a2s_decoder.h"
 #include "opendz_launcher.h"
-#include "opendz_launcher_gui.h"
 
 
-static struct SDL_T SDL = (struct SDL_T) {
-    .window = NULL,
-    .context = NULL
-};
+#define OPENDZL_LOG_FILEPATH "/tmp/open-dz-launcher.log"
+#define OPENDZL_MAX_ERROR_MESSAGES 8
+#define OPENDZL_ERRMSG_MAX_LENGTH 511
 
-/*
-void opendzl_create_rtext(struct rtext* text, char* buf, int font_size, int color) {
-    TTF_SetFontSize(SDL.font, font_size);
+#define OPENDZL_TUI_ELEM_COLUMNS 16
+#define OPENDZL_TUI_ELEM_ROWS 16
+
+
+void opendzl_setup(struct opendzl_ctx* ctx) {
+    ctx->running = true;
+    for(uint16_t i = 0; i < OPENDZL_MAX_ERROR_MESSAGES; i++) {
+        ctx->error_messages[i] = create_string();
+    }
+
+    opendzltui_create(&ctx->tui, OPENDZL_TUI_ELEM_COLUMNS, OPENDZL_TUI_ELEM_ROWS);
+}
+
+void opendzl_free(struct opendzl_ctx* ctx) {
+    for(uint16_t i = 0; i < OPENDZL_MAX_ERROR_MESSAGES; i++) {
+        string_free(&ctx->error_messages[i]);
+    }
+
+    opendzltui_free(&ctx->tui);
+}
+
+void opendzl_open_logfile(struct opendzl_ctx* ctx) {
+    ctx->logfile_fd = open(OPENDZL_LOG_FILEPATH, O_CREAT, S_IRUSR | S_IWUSR);
+}
+
+void opendzl_close_logfile(struct opendzl_ctx* ctx) {
+    if(ctx->logfile_fd > 0) {
+        close(ctx->logfile_fd);
+        ctx->logfile_fd = -1;
+    }
+}
     
-    SDL_Color text_color = (SDL_Color){ 
-        (color & 0xFF0000) >> 16,
-        (color & 0x00FF00) >> 8,
-        (color & 0x0000FF),
-        255
-    };
+void opendzl_draw_errmsg(struct opendzl_ctx* ctx) {
+    if(ctx->num_error_messages == 0) {
+        return;   
+    }
 
-    SDL_Surface* surface = TTF_RenderText_Blended(SDL.font, buf, text_color);
-    text->texture = SDL_CreateTextureFromSurface(SDL.renderer, surface);
+    attron(COLOR_PAIR(COLOR_RED));
 
+    for(uint16_t i = 0; i < ctx->num_error_messages; i++) {
+        mvaddstr(i, 0, ctx->error_messages[i].bytes);
+    }
 
-    text->rect = (SDL_Rect) { 0, 0, surface->w, surface->h };
-    SDL_FreeSurface(surface);
+    attroff(COLOR_PAIR(COLOR_RED));
 }
 
-void opendzl_render_rtext(struct rtext* text, int x, int y) {
-    text->rect.x = x;
-    text->rect.y = y;
-    SDL_RenderCopy(SDL.renderer, text->texture, NULL, &text->rect);
-}
+void opendzl_write_errmsg_ex
+(
+    struct opendzl_ctx* ctx,
+    const char* msg,
+    const char* from_file,
+    int from_line,
+    const char* from_func,
+    ...
+){
+    va_list args;
+    va_start(args);
 
-void opendzl_free_rtext(struct rtext* text) {
-    SDL_DestroyTexture(text->texture);
+    memset(ctx->errmsg_buffer, 0, sizeof(ctx->errmsg_buffer));
+    const int errmsg_length = vsnprintf(ctx->errmsg_buffer, OPENDZL_ERRMSG_MAX_LENGTH, msg, args);
+
+    bool error_messages_full = false;
+
+    if(ctx->num_error_messages+1 > OPENDZL_MAX_ERROR_MESSAGES) {
+        //asm("int3");
+        for(uint16_t i = 0; i < OPENDZL_MAX_ERROR_MESSAGES-1; i++) {
+            struct string_t* A = &ctx->error_messages[i];
+            struct string_t* B = &ctx->error_messages[i+1];
+
+            string_move(A, B->bytes, B->size);
+        }
+
+        error_messages_full = true;
+    }
+
+    if(!error_messages_full) {
+        ctx->num_error_messages++;
+    }
+    
+    struct string_t* errmsg_str = &ctx->error_messages[ctx->num_error_messages-1]; 
+    string_move(errmsg_str, ctx->errmsg_buffer, errmsg_length);
+
+    va_end(args);
 }
-*/
 
 
 bool opendzl_get_server_info(char* addr, uint16_t port, struct dayz_server* server) {
@@ -142,169 +193,6 @@ out:
 
     return result;
 }
-
-
-bool opendzl_init_sdl3() {
-    SDL.window = NULL;
-    SDL.context = NULL;
-    SDL.renderer = NULL;
-
-
-    SDL.window = SDL_CreateWindow("Open-DZ-Launcher", 
-            SDL_WINDOWPOS_CENTERED,
-            SDL_WINDOWPOS_CENTERED, 700, 400, SDL_WINDOW_OPENGL);
-    if(!SDL.window) {
-        fprintf(stderr, "SDL failed to create window | %s\n", SDL_GetError());
-        return false;
-    }
-
-    SDL.context = SDL_GL_CreateContext(SDL.window);
-    if(!SDL.context) {
-        fprintf(stderr, "SDL failed to create context | %s\n", SDL_GetError());
-        return false;
-    }
-
-    const int renderer_index = -1;
-    const int renderer_flags = 0;
-    SDL.renderer = SDL_CreateRenderer(SDL.window, renderer_index, renderer_flags);
-    if(!SDL.renderer) {
-        fprintf(stderr, "SDL failed to create renderer | %s\n", SDL_GetError());
-        return false;
-    }
-
-    SDL_GetWindowSize(SDL.window, &SDL.win_width, &SDL.win_height);
-
-    
-    return true;
-}
-
-bool opendzl_load_font(const char* path) {
-    TTF_Init();
-    SDL.font = NULL;
-    SDL.font = TTF_OpenFont(path, 64);
-    if(!SDL.font) {
-        fprintf(stderr, "SDL failed to load font \"%s\" | %s\n", path, SDL_GetError());
-        return false;
-    }
-
-    return true;
-}
-
-
-static guielem_handle_t inputfield_handle = -1;
-static bool auto_setup_mods = false;
-
-static void test_callback(void* arg) {
-    struct opendzlgui_inputfield* inputfield = opendzlgui_getelem(inputfield_handle, GUI_INPUTFIELD);
-    printf("%s\n", inputfield->input.bytes);
-}
-
-void opendzl_run() {
-
-
-    SDL_Event event;
-    bool running = true;
-
-
-    opendzlgui_create_text(&SDL, "Open-DZ-Launcher", (struct vec2i){ 30, 50 }, (SDL_Color){ 230, 200, 160, 255 }, 23, 0);
-    
-    opendzlgui_create_button(&SDL, "test button", 
-            (struct vec2i){ 30, 200 }, (SDL_Color){ 150, 60, 30, 255 }, test_callback, 0);
-    
-    opendzlgui_create_button(&SDL, "join server", 
-            (struct vec2i){ 150, 200 }, (SDL_Color){ 30, 100, 30, 255 }, test_callback, 0);
-    
-    opendzlgui_create_button(&SDL, "download mods", 
-            (struct vec2i){ 270, 200 }, (SDL_Color){ 30, 100, 100, 255 }, test_callback, 0);
-    
-    opendzlgui_create_button(&SDL, "remove", 
-            (struct vec2i){ 30, 240 }, (SDL_Color){ 50, 50, 50, 255 }, test_callback, 0);
-
-    inputfield_handle = opendzlgui_create_inputfield(&SDL, "server address",
-            (struct vec2i){ 30, 280 }, 200, 0);
-
-
-    opendzlgui_create_checkbox(&SDL, "auto setup mods", (struct vec2i){ 120, 240 }, &auto_setup_mods, 0);
-
-    SDL.frame_time = 0.0f;
-
-    while(running) {
-        uint64_t start_ticks = SDL_GetPerformanceCounter();
-        SDL.mouse_down = false;
-
-        while(SDL_PollEvent(&event)) {
-            switch(event.type) {
-                case SDL_QUIT:
-                    running = false;
-                    break;
-
-                case SDL_MOUSEMOTION:
-                    SDL_GetMouseState(&SDL.mouse_x, &SDL.mouse_y);
-                    break;
-
-                case SDL_MOUSEBUTTONDOWN:
-                    SDL.mouse_down = true;
-                    opendzlgui_reset_guielem_focus();
-                    break;
-            
-                case SDL_TEXTINPUT:
-                    opendzlgui_event_textinput(&SDL, event.text.text);
-                    break;
-
-                case SDL_KEYDOWN:
-                    opendzlgui_event_keyinput(&SDL, event.key.keysym.sym);
-                    break;
-            }
-        }
-
-        //SDL.frame_time = (float)SDL_GetTicks()/1000.0f;
-
-        SDL_SetRenderDrawColor(SDL.renderer, 35, 33, 30, 255);
-        SDL_RenderClear(SDL.renderer);
-
-        opendzlgui_render(&SDL);
-        //opendzl_render_rtext(&name_text, 10, SDL.win_height-30);
-
-
-        SDL_GL_SwapWindow(SDL.window);
-        SDL_RenderPresent(SDL.renderer);
-    
-       
-        // Limit CPU usage and get accurate frame time.
-
-        uint64_t end_ticks = SDL_GetPerformanceCounter();
-        SDL.frame_time = (end_ticks - start_ticks) / (float)SDL_GetPerformanceFrequency();;
-      
-        SDL_Delay((16 / 1000.0f - SDL.frame_time) * 1000.0f);
- 
-        end_ticks = SDL_GetPerformanceCounter();
-        SDL.frame_time = (end_ticks - start_ticks) / (float)SDL_GetPerformanceFrequency();;
-      
-    }
-
-    //opendzl_free_rtext(&name_text);
-}
-
-void opendzl_free() {
-    if(SDL.renderer) {
-        SDL_DestroyRenderer(SDL.renderer);
-        SDL.renderer = NULL;
-    }
-    if(SDL.context) {
-        SDL_GL_DeleteContext(SDL.context);
-        SDL.context = NULL;
-    }
-    if(SDL.window) {
-        SDL_DestroyWindow(SDL.window);
-        SDL.window = NULL;
-    }
-
-    opendzlgui_free();
-
-    TTF_Quit();
-}
-
-
 
 
 

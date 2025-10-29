@@ -1,6 +1,7 @@
 #ifndef DAYZ_MOD_H
 #define DAYZ_MOD_H
 
+#include <stdint.h>
 
 #define DAYZ_MODNAME_MAX 256
 

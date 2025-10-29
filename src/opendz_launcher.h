@@ -1,28 +1,23 @@
 #ifndef OPENDZ_LAUNCHER_H
 #define OPENDZ_LAUNCHER_H
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
-
 #include "dayz_mod.h"
-
+#include "string.h"
+#include "tui.h"
 
 #define OPENDZL_MAX_SERVER_MODS 32
 #define OPENDZL_MAX_SERVER_NAME 256
 #define OPENDZL_MAX_SERVER_MAP_NAME 256
 
-struct SDL_T {
-    float frame_time;
-    SDL_Window* window;
-    SDL_GLContext* context;
-    SDL_Renderer* renderer;
-    TTF_Font* font;
-    int win_width;
-    int win_height;
-    int mouse_x;
-    int mouse_y;
-    bool mouse_down;
-};
+#define OPENDZL_ERRMSG_MAX 512
+
+// NCurses color pairs
+#define COLOR_CURSOR 8
+
+
+#define OPENDZL_MAX_ERROR_MESSAGES 8
+#define OPENDZL_ERRMSG_MAX_LENGTH 511
+
 
 struct dayz_server {
 
@@ -37,24 +32,41 @@ struct dayz_server {
 
 };
 
-/*
-struct rtext {
-    SDL_Rect rect;
-    SDL_Texture* texture;
+struct opendzl_ctx {
+    bool            running;
+    char            errmsg_buffer[OPENDZL_ERRMSG_MAX_LENGTH+1];
+    struct string_t error_messages[OPENDZL_MAX_ERROR_MESSAGES];
+    uint16_t        num_error_messages;
+    int             logfile_fd;
+
+    struct opendzltui tui;
 };
 
 
-void opendzl_create_rtext(struct rtext* text, char* buf, int font_size, int color);
-void opendzl_render_rtext(struct rtext* text, int x, int y);
-void opendzl_free_rtext(struct rtext* text);
-*/
+
+void opendzl_setup(struct opendzl_ctx* ctx);
+void opendzl_free(struct opendzl_ctx* ctx);
+void opendzl_open_logfile(struct opendzl_ctx* ctx);
+void opendzl_close_logfile(struct opendzl_ctx* ctx);
+void opendzl_draw_errmsg(struct opendzl_ctx* ctx);
 
 bool opendzl_get_server_info(char* addr, uint16_t port, struct dayz_server* server);
 
-bool opendzl_init_sdl3();
-bool opendzl_load_font(const char* path);
-void opendzl_run();
-void opendzl_free();
+
+#define opendzl_write_errmsg(ctx, msg, ...)\
+    opendzl_write_errmsg_ex(ctx, msg, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+
+void opendzl_write_errmsg_ex
+(
+    struct opendzl_ctx* ctx,
+    const char* msg,
+    const char* from_file,
+    int from_line,
+    const char* from_func,
+    ...
+);
+
+
 
 
 #endif
